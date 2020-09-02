@@ -3,9 +3,11 @@ const fs = require('fs');
 const qs = require('querystring');
 const bodyParser = require('body-parser');
 const makeTemplate = require('./lib/template.js');
+const topicRouter = require('./routes/topic.js');
 
 const app = express();
 
+app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: false}));
 app.get('*', function(req, res, next){
     fs.readdir('./data', function(error, fileArray){
@@ -14,94 +16,28 @@ app.get('*', function(req, res, next){
     });
 });
 
+app.use('/topic', topicRouter);
+
 app.get('/', function(req, res){
     const fileArray = req.list;
     const title = 'Welcome';
-    const context = makeTemplate.body(title, 'Welcome to WEB');
+    const context = makeTemplate.body(title, 
+        `
+        <p>Welcome To Web</p>
+        <img src="/img/hello.jpg" style="width:300px" display:block>
+        `    
+    );
     const fileList = makeTemplate.fileList(fileArray);
-    const template = makeTemplate.html(title, context, fileList, '<a href="/create">create</a>');
+    const template = makeTemplate.html(title, context, fileList, '<a href="/topic/create">create</a>');
     res.send(template);   
 });
 
-app.get('/page/:pageId', function(req, res){
-    const pageId = req.params.pageId;
-    const fileArray = req.list;
-    fs.readFile(`data/${pageId}`, 'utf8', function(err, data){
-        if(err) {
-            res.send('Not Found');
-        } else {
-            const title = pageId;
-            const context = makeTemplate.body(title, data);
-            const fileList = makeTemplate.fileList(fileArray);
-            const template = makeTemplate.html(title, context, fileList, `<a href="/create">create</a><a href="/update/${title}">update</a><a href="/delete/${title}">delete</a>`);
-            res.send(template);   
-        }   
-    });   
+app.use(function(req, res, next){
+    res.status(404).send('Sorry cant find that!!');
 });
 
-app.get('/create', function(req, res){
-    const fileArray = req.list;
-    const title = 'Create';
-    const form = `
-    <form action="http://localhost:3000/create" method="POST">
-        <p><input type="text" name="title" placeholder="title"></p>
-        <p><textarea name="description" placeholder="description"></textarea></p>
-        <p><input type="submit" value="OK"><p>
-    </form>            
-    `;
-    const context = makeTemplate.body(title, form);
-    const fileList = makeTemplate.fileList(fileArray);
-    const template = makeTemplate.html(title, context, fileList, '');
-    res.send(template);
-});
-
-app.post('/create', function(req, res){
-    const post = req.body;
-    const title = post.title;
-    const description = post.description;
-    fs.writeFile(`data/${title}`, description, 'utf8', function(error){
-        if(error) throw error;
-        res.redirect(`/page/${title}`);
-    });
-});
-
-app.get('/update/:updateId', function(req, res){
-    const updateId = req.params.updateId;
-    const fileArray = req.list;
-    fs.readFile(`data/${updateId}`, 'utf8', function(error, data){
-        const title = 'Update';
-        const form = `
-        <form action="http://localhost:3000/update/${updateId}" method="POST">
-            <p><input type="text" name="title" value="${updateId}"></p>
-            <p><textarea name="description">${data}</textarea></p>
-            <p><input type="submit" value="OK"><p>
-        </form>            
-        `;
-        const context = makeTemplate.body(title, form);
-        const fileList = makeTemplate.fileList(fileArray);
-        const template = makeTemplate.html(title, context, fileList, '');
-        res.send(template); 
-    });
-});
-
-app.post('/update/:updateId', function(req, res){
-    const updateId = req.params.updateId;
-    const post = req.body;
-    const title = post.title;
-    const description = post.description;
-    fs.rename(`data/${updateId}`, `data/${title}`, function(){
-        fs.writeFile(`data/${title}`, description, 'utf8', function(error){
-            if(error) throw error;
-            res.redirect(`/page/${title}`);
-        });
-    });
-});
-
-app.get('/delete/:deleteId', function(req, res){
-    const deleteId = req.params.deleteId;
-    fs.unlink(`data/${deleteId}`, function(error){
-        res.redirect('/');
-    });
+app.use(function(err, req, res, next){
+    res.status(500).send('Something Broke!!');
 });
 
 app.listen(3000, () => console.log('Example App listening on port 3000'));
